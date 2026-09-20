@@ -135,4 +135,4 @@ tickets; and a scale at which the collapse ablation actually resolves.
 
 ## License
 
-Apache 2.0.
+MIT.
