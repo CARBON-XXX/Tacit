@@ -18,6 +18,15 @@ See [System 1 architecture and limits](docs/SYSTEM1.md) and
 [measured results](docs/RESULTS.md). This is research software; there is no
 evidence yet of overall superiority to Jev or Laya.
 
+The [workflow research track](docs/COMPETITION.md) now includes a 149M-parameter
+shared-state encoder with isolated candidate branches, a 498K-parameter JSON
+specialist, and a direct local Laya comparison. In the first paired test,
+Tacit scored **71.9%** versus Laya's **76.8%**, with complete-request p50 latency
+of **32.53 ms** versus **94.43 ms** on GB10. These are known-workflow specialist
+results from one seed, measured against a synthetic teacher's labels.
+
+![Workflow research measurements](results/typed-progress.svg)
+
 ```python
 from tacit import Tacit, Boolean, Choice, Score
 
@@ -40,8 +49,9 @@ answers["anger"].value          # expected level, 0.0 - 2.0
 
 No free-form text is generated, so there is nothing to parse and no way to get a value
 outside the set you asked about. The answer space is declared before the model
-runs. Returned label strings come from the caller's schema. There are no general
-pretrained weights; scripts train domain-specific checkpoints from scratch.
+runs. Returned label strings come from the caller's schema. There are no
+general-purpose Tacit weights. The recurrent and numeric scripts train from
+scratch; the optional semantic experiments fine-tune a pretrained input encoder.
 
 ## Why this exists
 
