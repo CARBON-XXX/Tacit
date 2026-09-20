@@ -15,6 +15,7 @@ text.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 import torch
@@ -51,6 +52,14 @@ class TacitConfig:
     encoder: EncoderConfig = field(default_factory=EncoderConfig)
     head_hidden: int | None = None
     max_bytes: int = 4096
+    question_batch_size: int = 64
+    question_cache_size: int = 128
+    prepared_cache_size: int = 8
+
+    def __post_init__(self) -> None:
+        if (self.max_bytes < 1 or self.question_batch_size < 1
+                or self.question_cache_size < 0 or self.prepared_cache_size < 0):
+            raise ValueError("positive byte/batch limits and a nonnegative cache size are required")
 
 
 class Tacit(nn.Module):
@@ -61,7 +70,8 @@ class Tacit(nn.Module):
         self.config = config or TacitConfig()
         self.encoder = ByteEncoder(self.config.encoder)
         self.head = DecisionHead(self.encoder.d_model, hidden=self.config.head_hidden)
-        self._cache: dict[tuple[str, ...], tuple[torch.Tensor, torch.Tensor]] = {}
+        self._cache: OrderedDict[tuple[str, ...], tuple[torch.Tensor, torch.Tensor]] = OrderedDict()
+        self._head_cache: OrderedDict = OrderedDict()
 
     @property
     def d_model(self) -> int:
@@ -78,6 +88,15 @@ class Tacit(nn.Module):
     def clear_cache(self) -> None:
         """Drop memoised question encodings. Call after updating weights."""
         self._cache.clear()
+        self._head_cache.clear()
+
+    def _apply(self, fn, recurse=True):
+        self.clear_cache()
+        return super()._apply(fn, recurse=recurse)
+
+    def load_state_dict(self, *args, **kwargs):
+        self.clear_cache()
+        return super().load_state_dict(*args, **kwargs)
 
     # -- text in, vectors out ------------------------------------------------
 
@@ -105,16 +124,76 @@ class Tacit(nn.Module):
         Results are memoised while the model is in eval mode, since a service
         usually asks the same handful of questions over and over.
         """
-        candidate_texts = question.candidate_texts()
-        key = (question.prompt, *candidate_texts)
-        if not self.training and key in self._cache:
-            return self._cache[key]
+        return self._question_vectors_many([question])[0]
 
-        encoded = self.encode_texts([question.prompt, *candidate_texts])
-        prompt_vec, candidate_vecs = encoded[0], encoded[1:]
-        if not self.training:
-            self._cache[key] = (prompt_vec.detach(), candidate_vecs.detach())
-        return prompt_vec, candidate_vecs
+    def _question_vectors_many(self, questions):
+        keys = [(q.prompt, *q.candidate_texts()) for q in questions]
+        vectors, missing, texts = {}, {}, []
+        for key in keys:
+            if key in vectors or key in missing:
+                continue
+            if not self.training and key in self._cache:
+                self._cache.move_to_end(key)
+                vectors[key] = self._cache[key]
+            else:
+                missing[key] = (len(texts), len(key))
+                texts.extend(key)
+        if texts:
+            size = self.config.question_batch_size
+            encoded = torch.cat([
+                self.encode_texts(texts[i:i + size]) for i in range(0, len(texts), size)
+            ])
+            for key, (start, count) in missing.items():
+                pair = encoded[start], encoded[start + 1:start + count]
+                vectors[key] = pair
+                if not self.training and self.config.question_cache_size:
+                    # Clone: a small entry must not retain a whole encoded batch.
+                    self._cache[key] = tuple(v.detach().clone() for v in pair)
+                    while len(self._cache) > self.config.question_cache_size:
+                        self._cache.popitem(last=False)
+        return [vectors[key] for key in keys]
+
+    def score_many(self, state_vecs, questions, *, calibrated=True):
+        """Score all questions with a shared state encoding and one head call.
+
+        Candidate slots are padded and masked; their order only permutes the
+        corresponding scores. Returned logits remain differentiable for training.
+        """
+        if not questions:
+            return {}
+        if len(questions) == 1:
+            name, question = next(iter(questions.items()))
+            return {name: self.score(state_vecs, question, calibrated=calibrated)}
+        batch, width = state_vecs.shape
+        key = tuple((q.prompt, *q.candidate_texts()) for q in questions.values())
+        if not self.training and key in self._head_cache:
+            self._head_cache.move_to_end(key)
+            prompts, candidates, mask, lengths = self._head_cache[key]
+        else:
+            vectors = self._question_vectors_many(list(questions.values()))
+            lengths = [c.shape[0] for _, c in vectors]
+            maximum = max(lengths)
+            prompts = torch.stack([p for p, _ in vectors])
+            candidates = torch.stack([
+                c if len(c) == maximum else torch.nn.functional.pad(c, (0, 0, 0, maximum - len(c)))
+                for _, c in vectors
+            ])
+            mask = torch.arange(maximum, device=state_vecs.device)[None, :] < torch.tensor(
+                lengths, device=state_vecs.device
+            )[:, None]
+            if not self.training and self.config.prepared_cache_size:
+                self._head_cache[key] = prompts.detach(), candidates.detach(), mask, lengths
+                while len(self._head_cache) > self.config.prepared_cache_size:
+                    self._head_cache.popitem(last=False)
+        count, maximum = candidates.shape[:2]
+        scores = self.head(
+            state_vecs[:, None, :].expand(-1, count, -1).reshape(-1, width),
+            prompts[None].expand(batch, -1, -1).reshape(-1, width),
+            candidates[None].expand(batch, -1, -1, -1).reshape(-1, maximum, width),
+            candidate_mask=mask[None].expand(batch, -1, -1).reshape(-1, maximum),
+            calibrated=calibrated,
+        ).reshape(batch, count, maximum)
+        return {name: scores[:, i, :lengths[i]] for i, name in enumerate(questions)}
 
     # -- scoring -------------------------------------------------------------
 
@@ -145,7 +224,8 @@ class Tacit(nn.Module):
             calibrated=calibrated,
         )
 
-    def answers_from_logits(self, question: Question, logits: torch.Tensor) -> list[Answer]:
+    @staticmethod
+    def answers_from_logits(question: Question, logits: torch.Tensor) -> list[Answer]:
         """Turn ``[B, n]`` logits into one typed answer per batch row."""
         labels = question.labels()
         probs = logits.float().softmax(dim=-1).detach().cpu()
@@ -188,9 +268,10 @@ class Tacit(nn.Module):
         states = state if batched else [state]
         state_vecs = self.encode_texts(states)
         per_row: list[dict[str, Answer]] = [{} for _ in states]
+        all_logits = self.score_many(state_vecs, questions)
         for name, question in questions.items():
             for i, answer in enumerate(
-                self.answers_from_logits(question, self.score(state_vecs, question))
+                self.answers_from_logits(question, all_logits[name])
             ):
                 per_row[i][name] = answer
         return per_row if batched else per_row[0]
@@ -231,7 +312,7 @@ class Session:
 
     @torch.no_grad()
     def observe(self, text: str) -> Session:
-        """Fold an observation into the state, one byte at a time."""
+        """Fold an observation into state with a resumable chunked scan."""
         raw = encode_bytes(text)
         if not raw:
             return self
@@ -247,8 +328,9 @@ class Session:
         """Answer typed questions against everything observed so far."""
         if self._bytes_seen == 0:
             raise RuntimeError("ask() before any observe(); the session has no state yet")
+        logits = self.model.score_many(self._state_vec, questions)
         return {
-            name: self.model.answers_from_logits(q, self.model.score(self._state_vec, q))[0]
+            name: self.model.answers_from_logits(q, logits[name])[0]
             for name, q in questions.items()
         }
 

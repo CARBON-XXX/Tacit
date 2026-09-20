@@ -1,6 +1,22 @@
 # Tacit
 
-**A recurrent decision core that answers typed questions instead of writing text — and remembers.**
+**A small System 1 decision core: events in, probabilities and typed decisions out.**
+
+Tacit 0.2 focuses on continuous classification, routing, scoring and state
+updates. It has no language generation objective. A new `SignalTacit` path takes
+numeric events directly, with no tokenizer or text encoder; the `Tacit` text
+interface below remains available for trained text-decision tasks.
+
+- Resumable chunked streaming, with byte-step numerical parity tests.
+- Shared state encoding and batched runtime-defined question scoring.
+- Fixed-schema numeric decisions, explicit latest-value memory and missing-field masks.
+- Decision-only cross entropy, Brier/ordinal losses, per-schema temperature
+  fitting and prediction sets that abstain on empty or ambiguous sets.
+- A reproducible, subject-disjoint sensor benchmark and a small neural baseline.
+
+See [System 1 architecture and limits](docs/SYSTEM1.md) and
+[measured results](docs/RESULTS.md). This is research software; there is no
+evidence yet of overall superiority to Jev or Laya.
 
 ```python
 from tacit import Tacit, Boolean, Choice, Score
@@ -22,11 +38,10 @@ answers["team"].probabilities   # {"billing": ..., "technical": ..., "sales": ..
 answers["anger"].value          # expected level, 0.0 - 2.0
 ```
 
-No string comes back, so there is nothing to parse and no way to get a value
+No free-form text is generated, so there is nothing to parse and no way to get a value
 outside the set you asked about. The answer space is declared before the model
-runs. There are no pretrained weights here — the numbers further down come from
-models the example scripts train from scratch, which is also how you can check
-them.
+runs. Returned label strings come from the caller's schema. There are no general
+pretrained weights; scripts train domain-specific checkpoints from scratch.
 
 ## Why this exists
 
@@ -125,13 +140,11 @@ Requires Python 3.10+ and PyTorch 2.1+. Nothing else.
 
 ## Status
 
-Alpha, and small. There are no pretrained weights — the examples train their own
-in minutes, which is the point: you can verify every number here yourself rather
-than take it on trust.
-
-What would make this materially better, roughly in order: a fused streaming
-kernel to kill the per-byte launch overhead; a real dataset instead of synthetic
-tickets; and a scale at which the collapse ablation actually resolves.
+Alpha. The numeric path has a real-data pilot and locally reproducible training
+checkpoints. The text path still lacks a broadly trained semantic checkpoint.
+The streaming implementation is chunked PyTorch; a fused kernel remains future
+work. Numerical parity and fixed-size state do not establish an accuracy
+advantage. See the results for the baseline comparison and measured limits.
 
 ## License
 

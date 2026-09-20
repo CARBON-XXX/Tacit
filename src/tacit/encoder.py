@@ -173,15 +173,26 @@ class ByteEncoder(nn.Module):
         tokens: torch.Tensor,
         state: EncoderState,
     ) -> tuple[torch.Tensor, EncoderState]:
-        """Fold a run of bytes into the state one position at a time.
+        """Fold a run of bytes into state using resumable parallel chunks.
 
         ``tokens`` is ``[B, T]``. Returns the hidden state at the final position
         and the updated encoder state. This is the streaming counterpart of
         ``pool``; cost per byte does not depend on how much came before.
         """
-        h = None
-        for i in range(tokens.shape[1]):
-            h, state = self.step(tokens[:, i], state)
-        if h is None:
+        if tokens.ndim != 2 or tokens.shape[1] == 0:
             raise ValueError("absorb() needs at least one token")
-        return h[:, 0], state
+        h = self.embed(tokens)
+        blocks = []
+        for block, carried in zip(self.blocks, state.blocks, strict=True):
+            h, carried = block.absorb(h, carried, state.pos)
+            blocks.append(carried)
+        reg = state.register
+        if self.register is not None:
+            outputs = []
+            for i in range(tokens.shape[1]):
+                out, reg = self.register.step(h[:, i:i + 1], reg)
+                outputs.append(out)
+            h = torch.cat(outputs, dim=1)
+        return self.norm_out(h[:, -1]), EncoderState(
+            blocks=blocks, register=reg, pos=state.pos + tokens.shape[1]
+        )

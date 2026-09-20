@@ -1,0 +1,20 @@
+{
+  "tacit": {
+    "parameters": 115542,
+    "accuracy_mean": 0.8876823981602987,
+    "accuracy_std": 0.011197835206998694,
+    "calibrated_ece_mean": 0.03936856335346926
+  },
+  "window_mlp": {
+    "parameters": 22022,
+    "accuracy_mean": 0.8244542479515076,
+    "accuracy_std": 0.00687366193717206,
+    "calibrated_ece_mean": 0.020052175903573805
+  },
+  "temporal_cnn": {
+    "parameters": 44422,
+    "accuracy_mean": 0.8980884552001953,
+    "accuracy_std": 0.01168262054628006,
+    "calibrated_ece_mean": 0.06071459384083735
+  }
+}

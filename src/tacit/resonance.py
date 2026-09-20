@@ -310,9 +310,58 @@ class ResonantBlock(nn.Module):
         out = x + self._readout(z, h)
 
         if return_state:
-            buf = normed[:, -(self.conv_kernel - 1):] if self.conv is not None else None
+            buf = None
+            if self.conv is not None:
+                width = self.conv_kernel - 1
+                buf = normed[:, -width:] if width else normed[:, :0]
             return out, (carry, buf)
         return out
+
+    def absorb(self, x: torch.Tensor, state, pos: int):
+        """Resume a chunked scan at any position, without padding carried state.
+
+        Collapse boundaries use the absolute position, so splitting an event at
+        arbitrary byte boundaries preserves evaluation-mode outputs. Projection,
+        convolution and readout run once per observation instead of per byte.
+        Working memory scales with this observation; persistent memory does not.
+        """
+        if x.ndim != 3 or x.shape[1] == 0:
+            raise ValueError("absorb() needs [batch, nonempty time, d_model]")
+        if pos < 0:
+            raise ValueError("pos must be nonnegative")
+        carry, buf = state
+        normed = self.norm(x)
+        if self.conv is None:
+            h = normed
+        else:
+            seq = torch.cat([buf, normed], dim=1)
+            h = F.silu(self.conv(seq.transpose(1, 2)).transpose(1, 2))
+            width = self.conv_kernel - 1
+            buf = seq[:, -width:] if width else seq[:, :0]
+        drive = self._drive(h)
+        lam = self._lam_selective(h) if self.selective else None
+        log_lam = None if self.selective else self._log_lambda()
+        chunks = []
+        start, total = 0, x.shape[1]
+        while start < total:
+            size = min(self.chunk - (pos + start) % self.chunk, total - start)
+            end = start + size
+            if lam is None:
+                steps = torch.arange(1, size + 1, device=x.device).view(1, size, 1, 1)
+                prefix = torch.exp(steps * log_lam)
+            else:
+                prefix = torch.cumprod(lam[:, start:end], dim=1)
+            within = prefix * torch.cumsum(drive[:, start:end] / prefix, dim=1)
+            z = within + prefix * carry.unsqueeze(1)
+            chunks.append(z)
+            carry = z[:, -1]
+            if self.collapse is not None and (pos + end) % self.collapse_every == 0:
+                carry = self._collapse_state(carry, h[:, end - 1:end])
+            start = end
+        # A slice would retain the entire observation's storage in an inference
+        # session even though numel() reports only a small buffer.
+        carried = carry.clone(), None if buf is None else buf.clone()
+        return x + self._readout(torch.cat(chunks, dim=1), h), carried
 
     # -- streaming path ------------------------------------------------------
 
