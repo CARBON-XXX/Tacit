@@ -34,7 +34,7 @@ research starting point, with code you can run and challenge.
 
 https://github.com/CARBON-XXX/Tacit
 
-Apache 2.0 · PyTorch · train-from-scratch examples
+MIT · PyTorch · train-from-scratch examples
 
 Inspired by Jev's typed-decision framing:
 https://typesafe.ai/blog/introducing-system-one-models-and-jev
