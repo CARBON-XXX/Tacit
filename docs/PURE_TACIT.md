@@ -18,7 +18,7 @@ decision readout. It is a single neural network, distinct from Tacit's recurrent
 streaming experiments. Pretrained encoder provenance remains disclosed; calling
 the system pure Tacit does not mean the encoder was pretrained from scratch.
 
-The expanded training run uses 144,886 unique training cases before workflow
+The expanded training run uses 144,886 training cases before workflow
 replay: NLI, four structured workflows, news topics and emotion labels. It trains
 both premise/instruction and equivalent JSON-state layouts. A single checkpoint
 is selected using seven validation tracks. Improvement on new tasks cannot hide

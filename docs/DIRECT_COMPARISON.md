@@ -6,6 +6,12 @@ All figures below come from our own runs on identical test requests, with model
 variants and supervision identified. Published competitor scores are not substituted
 for missing measurements.
 
+**Follow-up:** the [expanded comparison](EXPANDED_COMPARISON.md) finds strong
+input-format dependence. Putting both NLI statements in JSON changes Tacit
+mixed/Laya general relation accuracy to 39.55%/87.50%. Read both layouts before
+interpreting the earlier table below. Its cost figures are historical; the
+current cumulative API cap is $5.00 and the expanded report includes later costs.
+
 ![Measured comparison](../results/jev-laya-tacit.svg)
 
 ## Accuracy and scope

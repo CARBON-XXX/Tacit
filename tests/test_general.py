@@ -8,12 +8,27 @@ pytest.importorskip("pyarrow")
 pytest.importorskip("transformers")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 from general_data import nli_case, premise_key, split_training  # noqa: E402
-from publish_comparison import paired_clusters  # noqa: E402
+from publish_comparison import bootstrap_cluster, paired_clusters  # noqa: E402
 from train_general import batch_loss  # noqa: E402
 from typed_common import record  # noqa: E402
 
 from tacit import decision_loss  # noqa: E402
 from tacit.semantics import schema_candidates  # noqa: E402
+
+
+def test_bootstrap_groups_equivalent_layouts_and_normalized_duplicate_texts():
+    text = {"id": "mnli/test/a/0", "state": "A premise with  spaces."}
+    structured = {
+        "id": text["id"] + "/structured",
+        "state": {"premise": "A premise with spaces.", "hypothesis": "Another hypothesis."},
+    }
+    assert bootstrap_cluster(text) == bootstrap_cluster(structured)
+    assert bootstrap_cluster({"id": "news/test/0", "state": " A NEWS story "}) == (
+        bootstrap_cluster({"id": "news/test/1", "state": "a news  story"})
+    )
+    assert bootstrap_cluster({"id": "te_customer_service_1", "state": {}}) == (
+        "te_customer_service_1"
+    )
 
 
 def test_paired_uncertainty_keeps_repeated_premises_together():

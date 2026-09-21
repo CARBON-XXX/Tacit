@@ -2,9 +2,11 @@
 
 An unresolved request retains its full reservation across crashes. All requests
 using this ledger run under one process lock. The cap never resets between runs.
+Explicit user-authorized cap changes retain every entry and record an audit event.
 Credentials and account-wide balances belong outside source control.
 """
 
+import argparse
 import fcntl
 import json
 import os
@@ -18,18 +20,54 @@ class BudgetExceeded(RuntimeError):
 
 
 class BudgetLedger:
-    def __init__(self, path, cap="0.50"):
+    def __init__(self, path, cap=None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.lock = (self.path.with_suffix(".lock")).open("a")
-        fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        if self.path.exists():
-            self.data = json.loads(self.path.read_text())
-            if Decimal(self.data["cap_usd"]) != Decimal(cap):
-                raise ValueError("existing budget cap cannot be silently changed")
-        else:
-            self.data = {"cap_usd": str(cap), "entries": []}
-            self.save()
+        try:
+            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if self.path.exists():
+                self.data = json.loads(self.path.read_text())
+                self.validate_cap(self.data["cap_usd"])
+                if cap is not None and Decimal(self.data["cap_usd"]) != self.validate_cap(cap):
+                    raise ValueError("existing budget cap cannot be silently changed")
+            else:
+                initial = self.validate_cap("0.50" if cap is None else cap)
+                self.data = {"cap_usd": str(initial), "entries": []}
+                self.save()
+        except BaseException:
+            self.lock.close()
+            raise
+
+    @staticmethod
+    def validate_cap(value):
+        amount = Decimal(str(value))
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError("budget cap must be finite and positive")
+        return amount
+
+    def set_cap(self, cap, *, reason):
+        """Call only for an explicit user-authorized cumulative budget change."""
+        amount = self.validate_cap(cap)
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("explicit budget change requires an authorization reason")
+        if amount < self.committed:
+            raise BudgetExceeded("new cap is below charges and unresolved reservations")
+        previous = self.data["cap_usd"]
+        if amount == Decimal(previous):
+            return
+        self.data.setdefault("cap_changes", []).append(
+            {
+                "previous_cap_usd": previous,
+                "new_cap_usd": str(amount),
+                "reason": reason,
+                "time": time.time(),
+                "existing_requests": len(self.data["entries"]),
+                "committed_usd": str(self.committed),
+            }
+        )
+        self.data["cap_usd"] = str(amount)
+        self.save()
 
     def save(self):
         temp = self.path.with_suffix(".tmp")
@@ -98,3 +136,23 @@ class BudgetLedger:
     def close(self):
         fcntl.flock(self.lock, fcntl.LOCK_UN)
         self.lock.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Apply an explicitly authorized budget change.")
+    parser.add_argument(
+        "--ledger", type=Path, default=Path.home() / ".config/tacit/jev-budget.json"
+    )
+    parser.add_argument("--set-cap", required=True)
+    parser.add_argument("--reason", required=True)
+    args = parser.parse_args()
+    ledger = BudgetLedger(args.ledger)
+    try:
+        ledger.set_cap(args.set_cap, reason=args.reason)
+        print(json.dumps(ledger.summary()))
+    finally:
+        ledger.close()
+
+
+if __name__ == "__main__":
+    main()

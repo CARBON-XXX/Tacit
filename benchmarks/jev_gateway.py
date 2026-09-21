@@ -25,7 +25,7 @@ MODEL = "typesafe-ai/jev"
 def evaluate_cases(cases, output, limit):
     private = Path.home() / ".config/tacit"
     key = os.environ.get("AI_GATEWAY_API_KEY") or (private / "gateway.key").read_text().strip()
-    ledger = BudgetLedger(private / "jev-budget.json", cap="0.50")
+    ledger = BudgetLedger(private / "jev-budget.json")
     session = requests.Session()
     session.headers.update({"Authorization": "Bearer " + key, "Content-Type": "application/json"})
     try:

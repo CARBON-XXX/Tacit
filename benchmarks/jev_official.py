@@ -84,7 +84,7 @@ def collect_parallel(
         raise ValueError("workers must be 1..8")
     private = private or Path.home() / ".config/tacit"
     key = os.environ.get("TYPESAFE_API_KEY") or (private / "typesafe.key").read_text().strip()
-    ledger = BudgetLedger(private / "jev-budget.json", cap="0.50")
+    ledger = BudgetLedger(private / "jev-budget.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     raw_path = output.with_suffix(".jsonl")
     local = threading.local()
@@ -235,7 +235,7 @@ def collect_parallel(
 def evaluate_cases(cases, output, private=None, session=None):
     private = private or Path.home() / ".config/tacit"
     key = os.environ.get("TYPESAFE_API_KEY") or (private / "typesafe.key").read_text().strip()
-    ledger = BudgetLedger(private / "jev-budget.json", cap="0.50")
+    ledger = BudgetLedger(private / "jev-budget.json")
     session = session or requests.Session()
     session.headers.update({"Authorization": "Bearer " + key, "Content-Type": "application/json"})
     raw_path = output.with_suffix(".jsonl")

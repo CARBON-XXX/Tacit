@@ -12,6 +12,17 @@ from publish_typed import export_predictions, sha256, write
 from typed_common import labels, load_cases, summarize
 
 
+def bootstrap_cluster(case):
+    """Do not count paired layouts or duplicate input text as independent cases."""
+    if case["id"].startswith("mnli/"):
+        state = case["state"]
+        premise = state["premise"] if isinstance(state, dict) else state
+        return hashlib.sha256(" ".join(premise.split()).encode()).hexdigest()
+    if case["id"].startswith(("news/", "emotion/")):
+        return hashlib.sha256(" ".join(case["state"].lower().split()).encode()).hexdigest()
+    return case["id"]
+
+
 def paired_clusters(candidate, reference, cases, samples=10000):
     def key(r):
         return r["id"], r["question"]
@@ -25,11 +36,7 @@ def paired_clusters(candidate, reference, cases, samples=10000):
         if any(r[f] != other[f] for f in ["labels", "gold_index", "target", "workflow", "type"]):
             raise ValueError("paired gold or schema differs")
         case = cases[r["id"]]
-        group = (
-            hashlib.sha256(" ".join(case["state"].split()).encode()).hexdigest()
-            if r["id"].startswith("mnli/")
-            else r["id"]
-        )
+        group = bootstrap_cluster(case)
         hit = int(np.argmax(r["probabilities"]) == r["gold_index"])
         hit -= int(np.argmax(other["probabilities"]) == r["gold_index"])
         value = grouped[r["workflow"]][group]
@@ -53,7 +60,10 @@ def paired_clusters(candidate, reference, cases, samples=10000):
         "decisions": int(count),
         "resamples": samples,
         "seed": 2026,
-        "unit": "workflow-stratified case; NLI hypotheses sharing a premise remain together",
+        "unit": (
+            "workflow-stratified case; shared NLI premises/layouts and duplicate auxiliary "
+            "input texts remain together"
+        ),
         "scope": (
             "fixed checkpoints, exploratory; no training-seed uncertainty "
             "or multiple-test correction"
