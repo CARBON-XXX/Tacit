@@ -1,0 +1,79 @@
+{
+  "parent": {
+    "dataset_revisions": {
+      "nyu-mll/multi_nli": "da70db2af9d09693783c3320c4249840212ee221",
+      "LocalLLaMA/typed-decisions": "ea9306458d6e9563628369a3d1e72e362fb381d2"
+    },
+    "arguments": {
+      "root": ".cache/multi-nli",
+      "output": ".cache/general-nli390k",
+      "train_cases": 390000,
+      "held_cases": 1000,
+      "test_per_split": 1000
+    },
+    "source_sha256": {
+      ".cache/multi-nli/data/train-00000-of-00001.parquet": "1c1de03640b168e410aabfca19e7cc2f3dfcd7f0e126e935674e56fb102c4529",
+      ".cache/multi-nli/data/validation_matched-00000-of-00001.parquet": "350c26950b55f460b50d36c76aef87d64b49c78812d7abf7bf97e5fede10f186",
+      ".cache/multi-nli/data/validation_mismatched-00000-of-00001.parquet": "6b0e1231cebedd255000a7d1732af37ad0500902239db625e231ed77c0c8f2f8"
+    },
+    "counts": {
+      "validation": 1150,
+      "calibration": 1154,
+      "train": 390900,
+      "test": 2400
+    },
+    "nli_premises": {
+      "validation": 321,
+      "calibration": 328,
+      "train": 127229
+    },
+    "train_rows_excluded_for_official_premise_overlap": 365,
+    "split_id_overlap": 0,
+    "nli_train_validation_calibration_premise_overlap": 0,
+    "nli_overlap_with_official_evaluation_premises": 0,
+    "input": "premise as state; hypothesis in instructions; relation and guarantee criteria",
+    "selection": "hash-based premise groups; evaluation sampled by source row and pair ID before scoring",
+    "corpus_sha256": {
+      "calibration.jsonl": "eec646df4500c29cf58185b813c161bfede1064d34c40ef818d0aa65411b4871",
+      "test.jsonl": "32a1058b6e36969bea3a595ff9a5de3e56e8055b0e2259facfd3176e0cc1b416",
+      "train.jsonl": "e2cba83b325f87fc6ebf6ad366f21f6d133443e086da4ac0f79e822cfbcb56f6",
+      "validation.jsonl": "9bee985584304ca198ca463797bc2021ebd76c287ff752be42ae31f097fb9f6c"
+    },
+    "licenses": "MultiNLI source licenses retained; typed-decisions Apache-2.0; converter MIT"
+  },
+  "previous_manifest_sha256": "1008bdde39647a000e2163db178159cbc2e1c8007dc0ad0bd683766fc51c80b2",
+  "dataset_revisions": {
+    "fancyzhx/ag_news": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "dair-ai/emotion": "cab853a1dbdf4c42c2b3ef2173804746df8825fe"
+  },
+  "source_sha256": {
+    ".cache/ag-news/data/train-00000-of-00001.parquet": "fc508d6d9868594e3da960a8cfeb63ab5a4746598b93428c224397080c1f52ee",
+    ".cache/ag-news/data/test-00000-of-00001.parquet": "71de87ec66bc5737752a2502204dfa6d7fe9856ade3ea444dc6317789a4f13fb",
+    ".cache/emotion/split/train-00000-of-00001.parquet": "10817f0f2ea42358bc62f69a09dfb8bd71701727df6d5a387bea742f3ea06417",
+    ".cache/emotion/split/test-00000-of-00001.parquet": "6f8407fa1ca9c310f55781f082ed73812f6551e8dda2c61973123a121869245b",
+    ".cache/emotion/split/validation-00000-of-00001.parquet": "c70f0e660b5ebd1ea9a37d2a851f516f08a6d6477cdfc11be204e22a2f1102fd"
+  },
+  "counts": {
+    "validation": 4052,
+    "calibration": 4056,
+    "test": 8400,
+    "train": 524874
+  },
+  "training_counts": {
+    "nli": 390000,
+    "news": 117990,
+    "emotion": 15984,
+    "typed": 900
+  },
+  "development_and_test": "identical bytes to general-v2; no reshuffling or model-based selection",
+  "fresh_gate_training_input_overlap": 0,
+  "nli_layouts": "train hash-selects one layout; validation/calibration/test include both paired layouts",
+  "licenses": "Original code MIT; Emotion research/education only, machine-generated labels; AG News source license unspecified; retain source terms. Research checkpoint, not a commercial license grant.",
+  "builder_sha256": "bad33542be5355a88fd43028cf5ff8e789b001978c865c9556d4febf7f570cda",
+  "corpus_sha256": {
+    "calibration.jsonl": "a786f27f19898ac706b9e0637185dd6f1559f144a784d116e2f927569076fd71",
+    "test.jsonl": "8b300ddfe59fbae00695f63db831bfa71cc6987b297845b0a57c295a4b42580f",
+    "train.jsonl": "f068ac6347c3a1080350b0ea844634947dab2fd38db0f95dee5a257f16f33098",
+    "validation.jsonl": "df8b8a7d1f85107f586f5616b92a6fc34b4a78d9e743e45d744b59864852ddad"
+  }
+}

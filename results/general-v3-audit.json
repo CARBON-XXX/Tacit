@@ -1,0 +1,25 @@
+{
+  "corpus": ".cache/general-v3",
+  "manifest_sha256": "f7c9a69c111745202ef89d3cd115d24c48ca7958e1f270e00c77bf89d410a840",
+  "audit_program_sha256": "8ab64ba5132bba29df2676f081fffb9d5ec4ca430a76ad9ff56cd78e58163790",
+  "builder_sha256_verified": "bad33542be5355a88fd43028cf5ff8e789b001978c865c9556d4febf7f570cda",
+  "partition_counts": {
+    "validation": 4052,
+    "calibration": 4056,
+    "test": 8400,
+    "train": 524874,
+    "fresh_gate": 6004
+  },
+  "training_families": {
+    "mnli": 390000,
+    "typed": 900,
+    "emotion": 15984,
+    "news": 117990
+  },
+  "validation_calibration_test_byte_identical_to_v2": true,
+  "training_id_and_input_group_overlap_with_all_held_partitions": 0,
+  "fresh_gate_manifest_sha256": "aefdabafff296156a5cf35dcb497c8f4edc87e5b52c6d7d230f30f6334b0b86c",
+  "fresh_gate_test_sha256": "c6088274e4f1de6e10bf038d26fd31a8ef9ac1736ba8845a5170562f24e792e6",
+  "method": "Independent streaming audit: exact NLI premise groups, whitespace/case-normalized news/emotion text groups, and case IDs. No model predictions read.",
+  "limitations": "Does not establish absence from third-party pretraining data."
+}

@@ -45,15 +45,18 @@ statements in JSON, the frozen mixed Tacit checkpoint scores **39.55%**, versus
 **86.85% Jev / 87.50% Laya general**. See the [expanded comparison](docs/EXPANDED_COMPARISON.md)
 for both layouts, news and emotion results. New pure Tacit training is in progress;
 its intermediate validation scores are not published as test improvements.
+The [development report](docs/DEVELOPMENT.md) adds complete Jev/Laya validation
+references, an audited 524,874-case next training corpus, and a negative numerical
+embedding ablation. The larger corpus has not yet produced a trained checkpoint.
 
 ![Direct System 1 measurements](results/jev-laya-tacit.svg)
 
 In the latest paired workflow run, complete-request p50 was **17.74 ms** for Tacit
 refined versus **64.75 ms** for Laya typed on GB10/BF16, with lower Tacit accuracy.
 The initial 2,400 Jev requests cost an estimated **$0.0538713**. Including the
-expanded tests, 8,400 successful requests cost **$0.167640564**, calculated from
-reported input tokens; committed costs including unresolved reservations are
-**$0.181080564** under the user-authorized cumulative **$5.00** cap. See the reports
+expanded tests and development references, 12,452 successful requests cost
+**$0.247844814**, calculated from reported input tokens; committed costs including
+unresolved reservations are **$0.266660814** under the cumulative **$5.00** cap. See the reports
 for probability quality, paired intervals, accounting and reproducible scripts.
 
 ```python

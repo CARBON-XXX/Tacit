@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--checkpoint", type=Path, default=Path(".cache/laya-general"))
     parser.add_argument("--revision", default="1c5edc17a7acd8701df6fc341c0d179f1c62c982")
     parser.add_argument("--corpus", type=Path, default=Path(".cache/general-v1"))
+    parser.add_argument("--split", choices=["test", "validation", "calibration"], default="test")
     parser.add_argument(
         "--output", type=Path, default=Path("results/general/laya-general-test.json")
     )
@@ -44,13 +45,14 @@ def main():
         "--families", nargs="+", choices=["nli", "nli-structured", "typed", "news", "emotion"]
     )
     parser.add_argument(
-        "--accuracy-only", action="store_true",
+        "--accuracy-only",
+        action="store_true",
         help="omit latency measurements; suitable when GPU training is concurrent",
     )
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError("use a fresh output path")
-    cases = load_corpus(args.corpus, "test")
+    cases = load_corpus(args.corpus, args.split)
     if args.families:
         cases = [c for c in cases if family(c["id"]) in args.families]
     if not cases:
@@ -79,7 +81,7 @@ def main():
             "model": str(args.checkpoint),
             "manifest": agent.manifest,
             "temperatures": agent.temperatures,
-            "mode": "supervised decision checkpoint; held-out test; fitted calibration",
+            "mode": f"supervised decision checkpoint; held-out {args.split}; fitted calibration",
         }
     if str(agent.device) != "cuda":
         raise RuntimeError("GPU required, no silent fallback")
@@ -101,10 +103,7 @@ def main():
                 elapsed = (time.perf_counter() - start) * 1000
                 latencies.append({"id": case["id"], "latency_ms": elapsed})
                 entry["latency_ms"] = elapsed
-            raw.write(
-                json.dumps(entry, separators=(",", ":"))
-                + "\n"
-            )
+            raw.write(json.dumps(entry, separators=(",", ":")) + "\n")
             raw.flush()
             for name, q in case["questions"].items():
                 a = prediction["answers"][name]
@@ -121,6 +120,7 @@ def main():
         **provenance,
         "checkpoint_sha256": hashlib.sha256(checkpoint_file.read_bytes()).hexdigest(),
         "corpus_manifest": json.loads((args.corpus / "manifest.json").read_text()),
+        "evaluation_split": args.split,
         "hardware": torch.cuda.get_device_name(),
         "torch": torch.__version__,
         "dtype": str(agent.dtype),
@@ -128,7 +128,8 @@ def main():
         "metrics": {name: summarize(rows) for name, rows in grouped.items()},
         "tracks": measurements(records),
         "selected_families": sorted(grouped),
-        "measurement_mode": "accuracy only; no latency claim" if args.accuracy_only
+        "measurement_mode": "accuracy only; no latency claim"
+        if args.accuracy_only
         else "accuracy and latency; requires an idle GPU for meaningful timing",
         "latency": {
             name: {
@@ -139,7 +140,8 @@ def main():
                 ),
                 "scope": "isolated full SDK per case; CUDA synchronized; includes tokenization",
             }
-            for name, rows in grouped.items() if not args.accuracy_only
+            for name, rows in grouped.items()
+            if not args.accuracy_only
         },
         "latencies": latencies,
         "records": records,
