@@ -51,7 +51,7 @@ def paired_accuracy(candidate, reference, *, samples=10000, seed=2026):
         "ci95_case_bootstrap": np.quantile(distribution, [0.025, 0.975]).tolist(),
         "resamples": samples,
         "seed": seed,
-        "unit": "case, stratified by workflow; five correlated questions per case",
+        "unit": "case, stratified by workflow; all questions within each case stay together",
         "scope": "one fixed checkpoint; does not include training-seed uncertainty",
     }
 

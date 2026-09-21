@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from tacit.forked import ForkedTacit, fork_masks, pack_forks
+from tacit.forked import ForkedTacit, fork_masks, pack_fork_batch, pack_forks
 
 
 def test_fork_visibility():
@@ -45,3 +45,35 @@ def test_fork_encoder_equivariance_and_gradients():
     original.square().mean().backward()
     grad = model.encoder.get_input_embeddings().weight.grad
     assert torch.isfinite(grad).all() and grad.abs().sum() > 0
+
+
+def test_different_questions_and_option_counts_do_not_cross_contaminate():
+    pytest.importorskip("transformers")
+    from transformers import ModernBertConfig, ModernBertModel
+
+    torch.manual_seed(7)
+    config = ModernBertConfig(
+        vocab_size=64,
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        pad_token_id=0,
+        local_attention=16,
+        global_attn_every_n_layers=2,
+    )
+    config._attn_implementation = "sdpa"
+    model = ForkedTacit(ModernBertModel(config)).eval()
+    states = [[1, 2, 3], [1, 4, 5, 6, 7]]
+    schemas = [[[8, 9], [8, 10]], [[8, 11], [8, 12, 13], [8, 14]]]
+    batch = model(**pack_fork_batch(states, schemas, 0))
+    for i in range(2):
+        single = model(**pack_forks([states[i]], schemas[i], 0))
+        torch.testing.assert_close(batch[i, : len(schemas[i])], single[0], atol=1e-6, rtol=1e-5)
+    assert torch.isneginf(batch[0, 2])
+    # Exclude padded candidate logits from finite-logit objectives.
+    loss = batch[0, :2].square().mean() + batch[1, :3].square().mean()
+    loss.backward()
+    assert torch.isfinite(model.readout[-1].weight.grad).all()
+    with pytest.raises(ValueError):
+        pack_fork_batch(states, schemas[:1], 0)

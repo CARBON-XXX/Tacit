@@ -23,9 +23,10 @@ System 1 model, rather than redefining success around a convenient local result.
    seeds and paired comparisons, publish the model/configuration and harness.
    Do not declare a broad win from one selected seed or one favorable task.
 
-The current status is **not achieved**. We will use the available public Jev
-measurements with their provenance and limits, as requested; no new Jev calls
-have been made. Local Laya checkpoints can be evaluated directly.
+The current status is **not achieved**. The newer
+[direct comparison](DIRECT_COMPARISON.md) includes 2,400 official Jev API requests,
+released general and specialist Laya checkpoints, and Tacit's new NLI training.
+This document preserves the first workflow experiments and their provenance.
 
 ## First direct workflow benchmark
 
@@ -126,10 +127,11 @@ minus Laya. This quantifies case uncertainty for these fixed checkpoints, not
 training-seed uncertainty. It supports a quality gap, not a broad win.
 
 The first forked run selected its last epoch (8): validation soft NLL fell from
-1.0846 to 0.9002. A second training stage starts from that checkpoint with a fresh
-optimizer, eight additional epochs, encoder LR 1e-5 and head LR 1e-4. This decision
-uses the validation trajectory; epoch zero remains eligible if further training
-does not improve validation. No result from that stage is claimed before it ends.
+1.0846 to 0.9002. A second stage completed eight more epochs with a fresh optimizer,
+encoder LR 1e-5 and head LR 1e-4, retaining epoch zero as a candidate. It selected
+epoch six and scored 72.15% on the workflow test. The
+[new report](DIRECT_COMPARISON.md) preserves that result and the mixed NLI model's
+workflow regression instead of replacing earlier measurements.
 
 Snapshot files preserve full-precision per-decision probabilities, source revisions,
 split assignments and local checkpoint hashes. `data-audit.json` checks that all

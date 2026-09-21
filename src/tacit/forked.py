@@ -27,13 +27,29 @@ def fork_masks(owners, positions, local_window):
 
 def pack_forks(state_ids, branches, pad_id, *, device="cpu"):
     """Batch equal schemas without sharing any state information across examples."""
-    lengths = [len(ids) + sum(map(len, branches)) for ids in state_ids]
+    return pack_fork_batch(state_ids, [branches] * len(state_ids), pad_id, device=device)
+
+
+def pack_fork_batch(state_ids, candidate_sequences, pad_id, *, device="cpu"):
+    """Batch different questions/option counts while preserving isolated branches."""
+    if not state_ids or len(state_ids) != len(candidate_sequences):
+        raise ValueError("provide a candidate schema for every nonempty batch element")
+    if any(not s for s in state_ids) or any(
+        not c or any(not b for b in c) for c in candidate_sequences
+    ):
+        raise ValueError("states and candidate branches must be nonempty")
+    lengths = [
+        len(ids) + sum(map(len, branches))
+        for ids, branches in zip(state_ids, candidate_sequences, strict=True)
+    ]
     maximum = max(lengths)
     ids = torch.full((len(state_ids), maximum), pad_id, dtype=torch.long, device=device)
     owners = torch.full_like(ids, -1)
     positions = torch.zeros_like(ids)
-    markers = torch.empty((len(state_ids), len(branches)), dtype=torch.long, device=device)
-    for b, state in enumerate(state_ids):
+    count = max(map(len, candidate_sequences))
+    markers = torch.zeros((len(state_ids), count), dtype=torch.long, device=device)
+    candidate_mask = torch.zeros_like(markers, dtype=torch.bool)
+    for b, (state, branches) in enumerate(zip(state_ids, candidate_sequences, strict=True)):
         n = len(state)
         ids[b, :n] = torch.tensor(state, device=device)
         owners[b, :n] = 0
@@ -45,8 +61,15 @@ def pack_forks(state_ids, branches, pad_id, *, device="cpu"):
             owners[b, offset:end] = i + 1
             positions[b, offset:end] = torch.arange(n, n + len(branch), device=device)
             markers[b, i] = offset
+            candidate_mask[b, i] = True
             offset = end
-    return {"input_ids": ids, "owners": owners, "position_ids": positions, "markers": markers}
+    return {
+        "input_ids": ids,
+        "owners": owners,
+        "position_ids": positions,
+        "markers": markers,
+        "candidate_mask": candidate_mask,
+    }
 
 
 class ForkedTacit(nn.Module):
@@ -70,10 +93,11 @@ class ForkedTacit(nn.Module):
         config.reference_compile = False
         return cls(AutoModel.from_pretrained(path, config=config, attn_implementation="sdpa"))
 
-    def forward(self, input_ids, owners, position_ids, markers):
+    def forward(self, input_ids, owners, position_ids, markers, candidate_mask=None):
         masks = fork_masks(owners, position_ids, self.encoder.config.local_attention)
         hidden = self.encoder(
             input_ids=input_ids, position_ids=position_ids, attention_mask=masks
         ).last_hidden_state
         selected = hidden.gather(1, markers[:, :, None].expand(-1, -1, hidden.shape[-1]))
-        return self.readout(selected).squeeze(-1).float()
+        logits = self.readout(selected).squeeze(-1).float()
+        return logits if candidate_mask is None else logits.masked_fill(~candidate_mask, -torch.inf)

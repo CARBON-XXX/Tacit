@@ -30,7 +30,7 @@ dependencies = ["torch>=2.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.5"]
-bench = ["numpy>=1.24", "matplotlib>=3.7"]
+bench = ["numpy>=1.24", "matplotlib>=3.7", "requests>=2.32"]
 semantic = ["transformers>=5.4,<6", "numpy>=1.24", "pyarrow>=14", "safetensors>=0.4"]
 
 [project.urls]

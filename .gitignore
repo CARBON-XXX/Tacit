@@ -18,3 +18,4 @@ results/*.png
 results/*.log
 results/**/*.log
 results/typed/
+results/general/

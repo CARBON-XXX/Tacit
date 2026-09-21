@@ -18,14 +18,31 @@ See [System 1 architecture and limits](docs/SYSTEM1.md) and
 [measured results](docs/RESULTS.md). This is research software; there is no
 evidence yet of overall superiority to Jev or Laya.
 
-The [workflow research track](docs/COMPETITION.md) now includes a 149M-parameter
-shared-state encoder with isolated candidate branches, a 498K-parameter JSON
-specialist, and a direct local Laya comparison. In the first paired test,
-Tacit scored **71.9%** versus Laya's **76.8%**, with complete-request p50 latency
-of **32.53 ms** versus **94.43 ms** on GB10. These are known-workflow specialist
-results from one seed, measured against a synthetic teacher's labels.
+The [direct comparison](docs/DIRECT_COMPARISON.md) now measures Tacit, the official
+Jev 1.13.0 API and released Laya checkpoints on identical test requests. Tacit's
+149M-parameter semantic path shares state across isolated candidate branches at
+every layer. It supports batches with different instructions and option counts,
+and trains only for decisions.
 
-![Workflow research measurements](results/typed-progress.svg)
+| Measured task | Tacit | Jev | Laya |
+|---|---:|---:|---:|
+| Four workflows: 400 cases / 2,000 decisions | 72.15% refined | 73.45% | 76.80% typed |
+| NLI relation: 2,000 human-labeled cases | 80.75% mixed | 82.65% | 64.65% general |
+| NLI support Boolean: same 2,000 cases | 89.25% mixed | 85.25% | 77.10% general |
+
+Refined and mixed are separate Tacit checkpoints; the mixed model trades workflow
+accuracy (71.10%) for NLI capability. One training seed, task supervision and a
+fixed prompt format limit these results. Accuracy uses exposed probability argmax;
+Jev's returned NLI choice field scores 82.70%. Workflow labels come from a synthetic
+teacher. These results do not establish broad superiority.
+
+![Direct System 1 measurements](results/jev-laya-tacit.svg)
+
+In the latest paired workflow run, complete-request p50 was **17.74 ms** for Tacit
+refined versus **64.75 ms** for Laya typed on GB10/BF16, with lower Tacit accuracy.
+All 2,400 successful Jev requests cost an estimated **$0.0538713**, calculated from
+reported input tokens. See the report for probability quality, paired intervals,
+budget accounting, raw responses and reproducible scripts.
 
 ```python
 from tacit import Tacit, Boolean, Choice, Score
@@ -151,7 +168,9 @@ Requires Python 3.10+ and PyTorch 2.1+. Nothing else.
 ## Status
 
 Alpha. The numeric path has a real-data pilot and locally reproducible training
-checkpoints. The text path still lacks a broadly trained semantic checkpoint.
+checkpoints. Semantic experiments now cover supervised NLI and workflow decisions;
+arbitrary-task and multilingual generality remain unproven. Checkpoint binaries
+are local artifacts, with training recipes and hashes published in the snapshots.
 The streaming implementation is chunked PyTorch; a fused kernel remains future
 work. Numerical parity and fixed-size state do not establish an accuracy
 advantage. See the results for the baseline comparison and measured limits.
