@@ -18,6 +18,10 @@ See [System 1 architecture and limits](docs/SYSTEM1.md) and
 [measured results](docs/RESULTS.md). This is research software; there is no
 evidence yet of overall superiority to Jev or Laya.
 
+The development target is **pure Tacit: one neural checkpoint making decisions
+directly**, with no tree model, ensemble, external-model fallback or schema-specific
+model routing. See the [pure Tacit development rules](docs/PURE_TACIT.md).
+
 The [direct comparison](docs/DIRECT_COMPARISON.md) now measures Tacit, the official
 Jev 1.13.0 API and released Laya checkpoints on identical test requests. Tacit's
 149M-parameter semantic path shares state across isolated candidate branches at

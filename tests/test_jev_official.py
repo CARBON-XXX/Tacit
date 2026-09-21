@@ -151,3 +151,23 @@ def test_parallel_failure_finishes_current_wave_and_stops(tmp_path):
     assert ledger.committed == 2 * RESERVATION
     assert ledger.summary()["unresolved"] == 2
     ledger.close()
+
+
+def test_explicit_recovery_retains_old_cost_bound_and_does_not_rebill_success(tmp_path):
+    (tmp_path / "typesafe.key").write_text("test-only-placeholder")
+    output = tmp_path / "result.json"
+    failed = FakeSession(status=529)
+    with pytest.raises(RuntimeError):
+        collect_parallel([case()], output, 1, tmp_path, lambda: failed)
+    success = FakeSession()
+    with pytest.raises(ValueError):
+        collect_parallel([case()], output, 1, tmp_path, lambda: success)
+    assert not success.calls
+    collect_parallel([case()], output, 1, tmp_path, lambda: success, retry_unresolved=True)
+    evaluate_cases([case()], output, tmp_path, success)
+    collect_parallel([case()], output, 1, tmp_path, lambda: success)
+    assert len(success.calls) == 1
+    ledger = BudgetLedger(tmp_path / "jev-budget.json")
+    assert ledger.summary()["unresolved"] == 1
+    assert ledger.committed == RESERVATION + token_cost(response())
+    ledger.close()

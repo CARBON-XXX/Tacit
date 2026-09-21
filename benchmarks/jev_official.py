@@ -64,11 +64,21 @@ def answer_records(case, response):
     return output
 
 
-def collect_parallel(cases, output, workers, private=None, session_factory=requests.Session):
+def collect_parallel(
+    cases,
+    output,
+    workers,
+    private=None,
+    session_factory=requests.Session,
+    *,
+    retry_unresolved=False,
+):
     """Bounded waves: reserve all requests before dispatch, settle before next wave.
 
     Only the main thread touches the ledger/files. An error drains and accounts
     for the current wave, then stops; it never launches another wave or retries.
+    A separate explicit recovery run may retry unknown attempts with a NEW
+    reservation while retaining every earlier unknown charge.
     """
     if not 1 <= workers <= 8:
         raise ValueError("workers must be 1..8")
@@ -113,33 +123,46 @@ def collect_parallel(cases, output, workers, private=None, session_factory=reque
             identities.add(identity)
             if case["id"] in existing:
                 row = existing[case["id"]]
-                if row["request_sha256"] != identity or identity not in entries:
+                attempt = row.get("ledger_request_id", identity)
+                if (
+                    row["request_sha256"] != identity
+                    or attempt not in entries
+                    or not (attempt == identity or attempt.startswith(identity + ":retry:"))
+                ):
                     raise ValueError("saved response/ledger mismatch")
                 cost = token_cost(row["response"])
-                if entries[identity]["status"] == "reserved":
-                    ledger.settle(
-                        identity, cost, cost_basis="reported_tokens_times_published_price"
-                    )
-                elif Decimal(entries[identity]["cost_usd"]) != cost:
+                if entries[attempt]["status"] == "reserved":
+                    ledger.settle(attempt, cost, cost_basis="reported_tokens_times_published_price")
+                elif Decimal(entries[attempt]["cost_usd"]) != cost:
                     raise ValueError("settled cost mismatch")
                 answer_records(case, row["response"])
             else:
-                if identity in entries:
-                    raise ValueError("previous attempt has no saved response; do not rebill")
+                previous = [
+                    e
+                    for k, e in entries.items()
+                    if k == identity or k.startswith(identity + ":retry:")
+                ]
+                attempt = identity
+                if previous:
+                    if not retry_unresolved or any(e["status"] != "reserved" for e in previous):
+                        raise ValueError(
+                            "previous attempt has no saved response; explicit recovery required"
+                        )
+                    attempt = identity + ":retry:" + str(len(previous))
                 if len(encoded) > 32000 or len(case["questions"]) > 16:
                     raise ValueError("request exceeds conservative input bound")
-                pending.append((case, encoded, identity))
+                pending.append((case, encoded, identity, attempt))
         completed = len(cases) - len(pending)
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for offset in range(0, len(pending), workers):
                 wave = pending[offset : offset + workers]
                 if ledger.committed + RESERVATION * len(wave) > Decimal(ledger.data["cap_usd"]):
                     raise BudgetExceeded("next wave would exceed cumulative budget")
-                for _, _, identity in wave:
-                    ledger.reserve(identity, RESERVATION)
-                futures = [pool.submit(fetch, encoded) for _, encoded, _ in wave]
+                for _, _, _, attempt in wave:
+                    ledger.reserve(attempt, RESERVATION)
+                futures = [pool.submit(fetch, encoded) for _, encoded, _, _ in wave]
                 failure = None
-                for (case, _, identity), future in zip(wave, futures, strict=True):
+                for (case, _, identity, attempt), future in zip(wave, futures, strict=True):
                     try:
                         response, elapsed = future.result()
                         if response.status_code != 200:
@@ -156,6 +179,7 @@ def collect_parallel(cases, output, workers, private=None, session_factory=reque
                         row = {
                             "id": case["id"],
                             "request_sha256": identity,
+                            "ledger_request_id": attempt,
                             "response": response.json(),
                             "latency_ms": elapsed,
                             "reserved_usd": str(RESERVATION),
@@ -169,13 +193,26 @@ def collect_parallel(cases, output, workers, private=None, session_factory=reque
                             stream.flush()
                             os.fsync(stream.fileno())
                         ledger.settle(
-                            identity,
+                            attempt,
                             token_cost(row["response"]),
                             cost_basis="reported_tokens_times_published_price",
                         )
                         answer_records(case, row["response"])
                         completed += 1
                     except Exception as error:
+                        with output.with_suffix(".attempt-errors.jsonl").open("a") as stream:
+                            stream.write(
+                                json.dumps(
+                                    {
+                                        "id": case["id"],
+                                        "request_sha256": identity,
+                                        "ledger_request_id": attempt,
+                                        "error_type": type(error).__name__,
+                                        "error": str(error).replace(key, "[REDACTED]"),
+                                    }
+                                )
+                                + "\n"
+                            )
                         failure = failure or error
                 if failure is not None:
                     raise failure
@@ -220,15 +257,16 @@ def evaluate_cases(cases, output, private=None, session=None):
                 row = existing[case["id"]]
                 if row["request_sha256"] != identity:
                     raise ValueError("existing response used a different request")
-                if identity not in entries:
+                attempt = row.get("ledger_request_id", identity)
+                if attempt not in entries or not (
+                    attempt == identity or attempt.startswith(identity + ":retry:")
+                ):
                     raise ValueError("saved response has no cumulative budget entry")
                 cost = token_cost(row["response"])
                 # Recover a crash between fsync of response and ledger settlement.
-                if entries[identity]["status"] == "reserved":
-                    ledger.settle(
-                        identity, cost, cost_basis="reported_tokens_times_published_price"
-                    )
-                elif Decimal(entries[identity]["cost_usd"]) != cost:
+                if entries[attempt]["status"] == "reserved":
+                    ledger.settle(attempt, cost, cost_basis="reported_tokens_times_published_price")
+                elif Decimal(entries[attempt]["cost_usd"]) != cost:
                     raise ValueError("saved response and settled cost disagree")
                 answer_records(case, row["response"])
                 continue
@@ -278,6 +316,12 @@ def evaluate_cases(cases, output, private=None, session=None):
             row = existing[case["id"]]
             records.extend(answer_records(case, row["response"]))
             times.append(row["latency_ms"])
+        request_hashes = {existing[c["id"]]["request_sha256"] for c in cases}
+        attempts = [
+            e
+            for e in ledger.data["entries"]
+            if e["request_id"].split(":retry:", 1)[0] in request_hashes
+        ]
         report = {
             "model": MODEL,
             "mode": "Jev generalist; no local training or calibration",
@@ -303,7 +347,10 @@ def evaluate_cases(cases, output, private=None, session=None):
                 "p95_ms": float(np.quantile(times, 0.95)),
                 "cases": len(cases),
                 "concurrency": max(existing[c["id"]].get("concurrency", 1) for c in cases),
-                "scope": "HTTPS; includes remote serving and network; no retries; see concurrency",
+                "scope": (
+                    "successful HTTPS attempts only; includes network and remote serving; "
+                    "failed-attempt reservations reported separately; see concurrency"
+                ),
             },
             "run_cost_usd": str(
                 sum((token_cost(existing[c["id"]]["response"]) for c in cases), Decimal(0))
@@ -312,6 +359,18 @@ def evaluate_cases(cases, output, private=None, session=None):
                 existing[c["id"]]["response"]["usage"]["input_tokens"] for c in cases
             ),
             "cumulative_budget": ledger.summary(),
+            "attempt_accounting": {
+                "successful_requests": len(cases),
+                "attempts": len(attempts),
+                "unresolved_attempts": sum(e["status"] == "reserved" for e in attempts),
+                "unresolved_reserved_usd": str(
+                    sum(
+                        (Decimal(e["reserved_usd"]) for e in attempts if e["status"] == "reserved"),
+                        Decimal(0),
+                    )
+                ),
+                "policy": "no automatic retry; explicit recovery retains all older reservations",
+            },
             "records": records,
         }
         output.write_text(json.dumps(report, indent=2) + "\n")
@@ -325,25 +384,44 @@ def evaluate_cases(cases, output, private=None, session=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=1)
-    parser.add_argument("--suite", choices=["typed", "nli"], default="typed")
+    parser.add_argument("--suite", choices=["typed", "nli", "expanded"], default="typed")
     parser.add_argument("--concurrency", type=int, default=1, choices=range(1, 9))
+    parser.add_argument(
+        "--retry-unresolved",
+        action="store_true",
+        help="explicit recovery; retains prior reservations and reserves again",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.suite == "typed":
         cases = load_cases(split="test")
         revisions = {"LocalLLaMA/typed-decisions": DATA_REVISION}
-    else:
+    elif args.suite == "nli":
         from general_data import MNLI_REVISION, load_corpus
 
         cases = [c for c in load_corpus(".cache/general-v1", "test") if c["id"].startswith("mnli/")]
         revisions = {"nyu-mll/multi_nli": MNLI_REVISION}
+    else:
+        from general_data import MNLI_REVISION, load_corpus
+        from general_v2_data import REVISIONS
+
+        cases = [
+            c
+            for c in load_corpus(".cache/general-v2", "test")
+            if c["id"].endswith("/structured") or c["id"].startswith(("news/", "emotion/"))
+        ]
+        revisions = {"nyu-mll/multi_nli": MNLI_REVISION, **REVISIONS}
     if not 1 <= args.limit <= len(cases):
         raise ValueError("limit must be 1.." + str(len(cases)))
     output = args.output or Path(
         "results/" + ("typed" if args.suite == "typed" else "general") + "/jev-official-test.json"
     )
-    if args.concurrency > 1:
-        collect_parallel(cases[: args.limit], output, args.concurrency)
+    if args.output is None and args.suite == "expanded":
+        output = Path("results/general/jev-expanded-test.json")
+    if args.concurrency > 1 or args.retry_unresolved:
+        collect_parallel(
+            cases[: args.limit], output, args.concurrency, retry_unresolved=args.retry_unresolved
+        )
     report = evaluate_cases(cases[: args.limit], output)
     report["dataset_revisions"] = revisions
     output.write_text(json.dumps(report, indent=2) + "\n")
