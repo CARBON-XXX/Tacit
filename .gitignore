@@ -11,3 +11,11 @@ venv/
 *.safetensors
 checkpoints/
 .DS_Store
+.cache/
+results/**/*.pt
+results/**/*.npz
+results/*.png
+results/*.log
+results/**/*.log
+results/typed/
+results/general/

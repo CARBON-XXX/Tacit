@@ -1,0 +1,35 @@
+{
+  "status_at_freeze": "unscored; no model outputs consulted",
+  "selection": "hash-ordered complete input groups; excludes all previous corpus splits",
+  "counts": {
+    "validation_matched": 1000,
+    "validation_mismatched": 1002,
+    "news": 2000
+  },
+  "requests": 6004,
+  "decisions": 10008,
+  "paired_nli_layouts": true,
+  "previous_manifest_sha256": "1008bdde39647a000e2163db178159cbc2e1c8007dc0ad0bd683766fc51c80b2",
+  "dataset_revisions": {
+    "nyu-mll/multi_nli": "da70db2af9d09693783c3320c4249840212ee221",
+    "LocalLLaMA/typed-decisions": "ea9306458d6e9563628369a3d1e72e362fb381d2",
+    "fancyzhx/ag_news": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "dair-ai/emotion": "cab853a1dbdf4c42c2b3ef2173804746df8825fe"
+  },
+  "source_sha256": {
+    ".cache/multi-nli/data/validation_matched-00000-of-00001.parquet": "350c26950b55f460b50d36c76aef87d64b49c78812d7abf7bf97e5fede10f186",
+    ".cache/multi-nli/data/validation_mismatched-00000-of-00001.parquet": "6b0e1231cebedd255000a7d1732af37ad0500902239db625e231ed77c0c8f2f8",
+    ".cache/ag-news/data/test-00000-of-00001.parquet": "71de87ec66bc5737752a2502204dfa6d7fe9856ade3ea444dc6317789a4f13fb"
+  },
+  "corpus_sha256": {
+    "test.jsonl": "c6088274e4f1de6e10bf038d26fd31a8ef9ac1736ba8845a5170562f24e792e6"
+  },
+  "no_previously_used_case_or_input_group": true,
+  "code_sha256": "6bb65728d4afdb630dde066f0337f8525a1aa6006f4ed65d3dbffc7376861cbf",
+  "limitations": [
+    "NLI/news only; does not satisfy workflow, emotion, latency or calibration gates.",
+    "Local split separation does not prove absence of pretrained-model contamination.",
+    "Both NLI layouts share cases and must be clustered in uncertainty estimates.",
+    "Do not tune a checkpoint using these scores before claiming a fresh final test."
+  ]
+}

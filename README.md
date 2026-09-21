@@ -1,6 +1,63 @@
 # Tacit
 
-**A recurrent decision core that answers typed questions instead of writing text — and remembers.**
+**A small System 1 decision core: events in, probabilities and typed decisions out.**
+
+Tacit 0.2 focuses on continuous classification, routing, scoring and state
+updates. It has no language generation objective. A new `SignalTacit` path takes
+numeric events directly, with no tokenizer or text encoder; the `Tacit` text
+interface below remains available for trained text-decision tasks.
+
+- Resumable chunked streaming, with byte-step numerical parity tests.
+- Shared state encoding and batched runtime-defined question scoring.
+- Fixed-schema numeric decisions, explicit latest-value memory and missing-field masks.
+- Decision-only cross entropy, Brier/ordinal losses, per-schema temperature
+  fitting and prediction sets that abstain on empty or ambiguous sets.
+- A reproducible, subject-disjoint sensor benchmark and a small neural baseline.
+
+See [System 1 architecture and limits](docs/SYSTEM1.md) and
+[measured results](docs/RESULTS.md). This is research software; there is no
+evidence yet of overall superiority to Jev or Laya.
+
+The development target is **pure Tacit: one neural checkpoint making decisions
+directly**, with no tree model, ensemble, external-model fallback or schema-specific
+model routing. See the [pure Tacit development rules](docs/PURE_TACIT.md).
+
+The [direct comparison](docs/DIRECT_COMPARISON.md) now measures Tacit, the official
+Jev 1.13.0 API and released Laya checkpoints on identical test requests. Tacit's
+149M-parameter semantic path shares state across isolated candidate branches at
+every layer. It supports batches with different instructions and option counts,
+and trains only for decisions.
+
+| Measured task | Tacit | Jev | Laya |
+|---|---:|---:|---:|
+| Four workflows: 400 cases / 2,000 decisions | 72.15% refined | 73.45% | 76.80% typed |
+| NLI relation: 2,000 human-labeled cases | 80.75% mixed | 82.65% | 64.65% general |
+| NLI support Boolean: same 2,000 cases | 89.25% mixed | 85.25% | 77.10% general |
+
+Refined and mixed are separate Tacit checkpoints; the mixed model trades workflow
+accuracy (71.10%) for NLI capability. One training seed, task supervision and a
+fixed prompt format limit these results. Accuracy uses exposed probability argmax;
+Jev's returned NLI choice field scores 82.70%. Workflow labels come from a synthetic
+teacher. These results do not establish broad superiority.
+
+**Expanded tests expose format brittleness:** on the same NLI cases with both
+statements in JSON, the frozen mixed Tacit checkpoint scores **39.55%**, versus
+**86.85% Jev / 87.50% Laya general**. See the [expanded comparison](docs/EXPANDED_COMPARISON.md)
+for both layouts, news and emotion results. New pure Tacit training is in progress;
+its intermediate validation scores are not published as test improvements.
+The [development report](docs/DEVELOPMENT.md) adds complete Jev/Laya validation
+references, an audited 524,874-case next training corpus, and a negative numerical
+embedding ablation. The larger corpus has not yet produced a trained checkpoint.
+
+![Direct System 1 measurements](results/jev-laya-tacit.svg)
+
+In the latest paired workflow run, complete-request p50 was **17.74 ms** for Tacit
+refined versus **64.75 ms** for Laya typed on GB10/BF16, with lower Tacit accuracy.
+The initial 2,400 Jev requests cost an estimated **$0.0538713**. Including the
+expanded tests and development references, 12,452 successful requests cost
+**$0.247844814**, calculated from reported input tokens; committed costs including
+unresolved reservations are **$0.266660814** under the cumulative **$5.00** cap. See the reports
+for probability quality, paired intervals, accounting and reproducible scripts.
 
 ```python
 from tacit import Tacit, Boolean, Choice, Score
@@ -22,11 +79,11 @@ answers["team"].probabilities   # {"billing": ..., "technical": ..., "sales": ..
 answers["anger"].value          # expected level, 0.0 - 2.0
 ```
 
-No string comes back, so there is nothing to parse and no way to get a value
+No free-form text is generated, so there is nothing to parse and no way to get a value
 outside the set you asked about. The answer space is declared before the model
-runs. There are no pretrained weights here — the numbers further down come from
-models the example scripts train from scratch, which is also how you can check
-them.
+runs. Returned label strings come from the caller's schema. There are no
+general-purpose Tacit weights. The recurrent and numeric scripts train from
+scratch; the optional semantic experiments fine-tune a pretrained input encoder.
 
 ## Why this exists
 
@@ -125,13 +182,13 @@ Requires Python 3.10+ and PyTorch 2.1+. Nothing else.
 
 ## Status
 
-Alpha, and small. There are no pretrained weights — the examples train their own
-in minutes, which is the point: you can verify every number here yourself rather
-than take it on trust.
-
-What would make this materially better, roughly in order: a fused streaming
-kernel to kill the per-byte launch overhead; a real dataset instead of synthetic
-tickets; and a scale at which the collapse ablation actually resolves.
+Alpha. The numeric path has a real-data pilot and locally reproducible training
+checkpoints. Semantic experiments now cover supervised NLI and workflow decisions;
+arbitrary-task and multilingual generality remain unproven. Checkpoint binaries
+are local artifacts, with training recipes and hashes published in the snapshots.
+The streaming implementation is chunked PyTorch; a fused kernel remains future
+work. Numerical parity and fixed-size state do not establish an accuracy
+advantage. See the results for the baseline comparison and measured limits.
 
 ## License
 

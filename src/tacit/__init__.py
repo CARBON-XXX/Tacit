@@ -31,6 +31,7 @@ from tacit.collapse import CollapseSchedule, PhaseCollapse
 from tacit.encoder import PAD_ID, VOCAB_SIZE, ByteEncoder, EncoderConfig, encode_bytes
 from tacit.engine import Session, Tacit, TacitConfig
 from tacit.heads import DecisionHead, expected_calibration_error, fit_temperature
+from tacit.learning import ConformalPolicy, PredictionSet, TemperatureScaler, decision_loss
 from tacit.questions import (
     Answer,
     Boolean,
@@ -43,14 +44,22 @@ from tacit.questions import (
 )
 from tacit.register import CyclicRegister
 from tacit.resonance import ResonantBlock
+from tacit.signals import SignalConfig, SignalState, SignalTacit
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # interface
     "Tacit",
     "TacitConfig",
     "Session",
+    "SignalTacit",
+    "SignalConfig",
+    "SignalState",
+    "decision_loss",
+    "TemperatureScaler",
+    "ConformalPolicy",
+    "PredictionSet",
     "Boolean",
     "Choice",
     "Score",

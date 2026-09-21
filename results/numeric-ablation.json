@@ -1,0 +1,218 @@
+{
+  "conclusion": "No selected improvement from numerical input embeddings; experiment not adopted.",
+  "architecture": "Single ForkedTacit neural checkpoint with a zero-initialized numeric input residual; frozen encoder; no score fusion or external prediction.",
+  "protocol": {
+    "seed": 0,
+    "epochs": 4,
+    "training_cases": 900,
+    "validation_cases": 148,
+    "calibration_cases": 152,
+    "test_cases": 400,
+    "test_decisions": 2000,
+    "selection": "Minimum validation soft-label NLL, including the untrained initial checkpoint. Test evaluated only after checkpoint selection and calibration.",
+    "control": "Identical architecture, initialization, optimizer and batches with numeric input features zeroed.",
+    "latency": "Not measured: concurrent GPU training."
+  },
+  "arms": {
+    "numeric-embedding-seed0": {
+      "parameters": 149263297,
+      "trainable_parameters": 249025,
+      "initial_checkpoint_sha256": "50d55df9912deb5b2908b61b52957efb823f8263136dedbc04a27477a7251967",
+      "selected_epoch": 0,
+      "validation_history": [
+        {
+          "epoch": 0,
+          "decisions": 740,
+          "accuracy": 0.7351351351351352,
+          "macro_f1_per_question": 0.5847542179558459,
+          "soft_accuracy": 0.5079631322103826,
+          "soft_nll": 0.8857471129010187,
+          "brier_sum": 0.07833680067939723,
+          "kl_gold_to_prediction": 0.1483631566981837,
+          "total_variation": 0.16784054137134957,
+          "ece_15_bins": 0.11071870600561158,
+          "score_expected_mae": 0.270248102750605,
+          "score_argmax_within_one": 0.956081081081081
+        },
+        {
+          "epoch": 1,
+          "decisions": 740,
+          "accuracy": 0.7148648648648649,
+          "macro_f1_per_question": 0.5423961963338854,
+          "soft_accuracy": 0.4821239115480362,
+          "soft_nll": 0.9088180384333265,
+          "brier_sum": 0.09773683221924284,
+          "kl_gold_to_prediction": 0.17143408223049159,
+          "total_variation": 0.19340436572479439,
+          "ece_15_bins": 0.11638858363993151,
+          "score_expected_mae": 0.3298937359401778,
+          "score_argmax_within_one": 0.9391891891891891
+        },
+        {
+          "epoch": 2,
+          "decisions": 740,
+          "accuracy": 0.7162162162162162,
+          "macro_f1_per_question": 0.5458988646622318,
+          "soft_accuracy": 0.4831034192352722,
+          "soft_nll": 0.9074841193484716,
+          "brier_sum": 0.09710785648958743,
+          "kl_gold_to_prediction": 0.17010016314563664,
+          "total_variation": 0.19215489353639648,
+          "ece_15_bins": 0.1201958152581902,
+          "score_expected_mae": 0.32133568146591734,
+          "score_argmax_within_one": 0.9358108108108109
+        },
+        {
+          "epoch": 3,
+          "decisions": 740,
+          "accuracy": 0.7108108108108108,
+          "macro_f1_per_question": 0.5499262797210569,
+          "soft_accuracy": 0.48285997185432133,
+          "soft_nll": 0.909367074182565,
+          "brier_sum": 0.09827364100174187,
+          "kl_gold_to_prediction": 0.1719831179797301,
+          "total_variation": 0.19361989712034086,
+          "ece_15_bins": 0.11152137676549141,
+          "score_expected_mae": 0.32474859122231303,
+          "score_argmax_within_one": 0.9527027027027027
+        },
+        {
+          "epoch": 4,
+          "decisions": 740,
+          "accuracy": 0.7094594594594594,
+          "macro_f1_per_question": 0.5466999079961162,
+          "soft_accuracy": 0.4829127192219309,
+          "soft_nll": 0.9080540769855476,
+          "brier_sum": 0.09723446730418958,
+          "kl_gold_to_prediction": 0.17067012078271263,
+          "total_variation": 0.19316305215726237,
+          "ece_15_bins": 0.1109370149873922,
+          "score_expected_mae": 0.32829968298280704,
+          "score_argmax_within_one": 0.9527027027027027
+        }
+      ],
+      "calibrated_test": {
+        "decisions": 2000,
+        "accuracy": 0.721,
+        "macro_f1_per_question": 0.5853505210570529,
+        "soft_accuracy": 0.47994642387861636,
+        "soft_nll": 0.9293327268202183,
+        "brier_sum": 0.0870257927513474,
+        "kl_gold_to_prediction": 0.16197417119588936,
+        "total_variation": 0.1866395817299567,
+        "ece_15_bins": 0.12788217784041295,
+        "score_expected_mae": 0.3069590902208576,
+        "score_argmax_within_one": 0.96375
+      },
+      "file_sha256": {
+        "manifest.json": "4e5cfd305618a695fb9ec6787ae7f3186b251b4b8797581e8b1f57020b902fdf",
+        "history.json": "94c8657fde37bee907e0fbb9db3fad3018ff3ace3e129e9b4b722f4300f81afb",
+        "result.json": "ac5ad8c7a43ae53fa56dd55d43304290270800d7c61d1fbe05856c928bf5a17a",
+        "best.pt": "099dcd3d6bb1dc55af97d9de92659c76ed69c43475430e3e20309db0635547bd"
+      }
+    },
+    "numeric-control-seed0": {
+      "parameters": 149263297,
+      "trainable_parameters": 249025,
+      "initial_checkpoint_sha256": "50d55df9912deb5b2908b61b52957efb823f8263136dedbc04a27477a7251967",
+      "selected_epoch": 2,
+      "validation_history": [
+        {
+          "epoch": 0,
+          "decisions": 740,
+          "accuracy": 0.7351351351351352,
+          "macro_f1_per_question": 0.5847542179558459,
+          "soft_accuracy": 0.5079631322103826,
+          "soft_nll": 0.8857471129010187,
+          "brier_sum": 0.07833680067939723,
+          "kl_gold_to_prediction": 0.1483631566981837,
+          "total_variation": 0.16784054137134957,
+          "ece_15_bins": 0.11071870600561158,
+          "score_expected_mae": 0.270248102750605,
+          "score_argmax_within_one": 0.956081081081081
+        },
+        {
+          "epoch": 1,
+          "decisions": 740,
+          "accuracy": 0.7405405405405405,
+          "macro_f1_per_question": 0.5775322975533076,
+          "soft_accuracy": 0.5117461826923461,
+          "soft_nll": 0.885915741986119,
+          "brier_sum": 0.07869185598416231,
+          "kl_gold_to_prediction": 0.148531785783284,
+          "total_variation": 0.16719210284833397,
+          "ece_15_bins": 0.10932156725069024,
+          "score_expected_mae": 0.27031968461869316,
+          "score_argmax_within_one": 0.9527027027027027
+        },
+        {
+          "epoch": 2,
+          "decisions": 740,
+          "accuracy": 0.7364864864864865,
+          "macro_f1_per_question": 0.5784369870953603,
+          "soft_accuracy": 0.5105410405169205,
+          "soft_nll": 0.8848090496635658,
+          "brier_sum": 0.07830992773743475,
+          "kl_gold_to_prediction": 0.14742509346073074,
+          "total_variation": 0.16730424085971315,
+          "ece_15_bins": 0.10808962472178517,
+          "score_expected_mae": 0.27074341265771285,
+          "score_argmax_within_one": 0.956081081081081
+        },
+        {
+          "epoch": 3,
+          "decisions": 740,
+          "accuracy": 0.7351351351351352,
+          "macro_f1_per_question": 0.5762896978124971,
+          "soft_accuracy": 0.5115834738182092,
+          "soft_nll": 0.886108110557637,
+          "brier_sum": 0.07875477126648932,
+          "kl_gold_to_prediction": 0.14872415435480194,
+          "total_variation": 0.16718144851070096,
+          "ece_15_bins": 0.1046801028148562,
+          "score_expected_mae": 0.27082037541719894,
+          "score_argmax_within_one": 0.9527027027027027
+        },
+        {
+          "epoch": 4,
+          "decisions": 740,
+          "accuracy": 0.7337837837837838,
+          "macro_f1_per_question": 0.5742970129969952,
+          "soft_accuracy": 0.511382578677132,
+          "soft_nll": 0.8853374505391399,
+          "brier_sum": 0.07834221067661301,
+          "kl_gold_to_prediction": 0.14795349433630495,
+          "total_variation": 0.16691937552580025,
+          "ece_15_bins": 0.10465738273416823,
+          "score_expected_mae": 0.27085799327614973,
+          "score_argmax_within_one": 0.956081081081081
+        }
+      ],
+      "calibrated_test": {
+        "decisions": 2000,
+        "accuracy": 0.7205,
+        "macro_f1_per_question": 0.576594469880962,
+        "soft_accuracy": 0.4786827512972392,
+        "soft_nll": 0.9294421717903294,
+        "brier_sum": 0.08761605782171769,
+        "kl_gold_to_prediction": 0.16208361616600067,
+        "total_variation": 0.18682854046580677,
+        "ece_15_bins": 0.1297194956330715,
+        "score_expected_mae": 0.3062032872403582,
+        "score_argmax_within_one": 0.965
+      },
+      "file_sha256": {
+        "manifest.json": "4adac9e485f8cd61073acac0a0296bef80fec7dca1edf565febcf0f9da1cc664",
+        "history.json": "610dfdecfddbf98c21e4c6d0f8cf677be78b6969125bc35fbed76d597e4e425a",
+        "result.json": "c1cd4c766296672772513bd4a7e551506d7855dfd97969bb65fa80901c615c19",
+        "best.pt": "84018692032bd511918dd97fa125e9748a52bc02243196a8e9941ed43466fcbd"
+      }
+    }
+  },
+  "limitations": [
+    "One seed, one workflow dataset, four epochs and a frozen encoder; this does not rule out other numerical representations or training regimes.",
+    "Test-label agreement uses the synthetic teacher distributions in the source dataset.",
+    "The 0.05 percentage-point difference between the two selected arms is not evidence of a numerical-feature gain: the numeric arm selected epoch zero.",
+    "Small differences from the older refined SDK result use different BF16 batching and calibration paths."
+  ]
+}
